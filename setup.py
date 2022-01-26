@@ -26,6 +26,7 @@ setuptools.setup(
         'python-dateutil',
         'python-decouple',
         'requests',
+        'sosi-api==0.1.*',
     ],
     extras_require={
         'dev': [
