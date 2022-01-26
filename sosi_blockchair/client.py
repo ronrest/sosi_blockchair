@@ -110,4 +110,34 @@ class BlockchairEthClient(BaseClient):
         output["transactions"] = transactions
         return output
 
+    def transaction(self, hash, erc20=True, effects=True, verbose=True):
+        """Get information for a transaction given its transaction hash id
+        
+        Returns: 
+            Dict with the following keys:
+            - calls:       list of dicts of internal transactions?
+            - effects:     dict 
+            - transaction: dict 
 
+        """
+        endpoint = f"/dashboards/transaction/{hash}"
+        params = dict()
+
+        params["trace_mempool"] = "true"
+        if erc20 == True:
+            params["erc20"] = "true"
+        if effects == True:
+            params["effects"] = "true"
+
+        response = self.request(endpoint=endpoint, params=params, kind="get")
+
+        # EXTRACT API RESPONSE METADATA
+        context = response.get("context", {})
+        n_results = context.get("results")
+        cost = context.get("request_cost")
+        if verbose:
+            print(f"cost: {cost} n results: {n_results}")
+
+        # EXTRACT DATA
+        data = response.get("data", {}).get(hash.lower(), {})
+        return data
