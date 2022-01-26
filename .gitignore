@@ -1,0 +1,23 @@
+# BUILD ARTEFACTS
+*.egg-info
+__pycache__
+
+# ENVIRONMENT ARTEFACTS
+.venv
+
+# SECRETS
+.env
+.env.local
+.dockerenv
+
+# SCRAP FILES
+_scrap.*
+scrap.*
+scrap/
+
+# OS CLUTTER
+.DS_Store
+
+# EDITOR CLUTTER
+.idea
+.vscode
