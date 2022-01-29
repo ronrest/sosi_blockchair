@@ -7,6 +7,7 @@
 from sosi_blockchair import BlockchairEthClient
 
 client = BlockchairEthClient()
+# client = BlockchairEthClient(testnet=True)  # connect to Eth testnet
 ```
 
 
