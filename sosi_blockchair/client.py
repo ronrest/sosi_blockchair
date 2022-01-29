@@ -110,14 +110,24 @@ class BlockchairEthClient(BaseClient):
         output["transactions"] = transactions
         return output
 
-    def transaction(self, hash, erc20=True, effects=True, verbose=True):
+    def transaction(self, hash, erc20=True, effects=True, events=False, verbose=True):
         """Get information for a transaction given its transaction hash id
         
+        Args:
+            hash (str): Transaction hash id.
+            erc20 (bool, list of str): Include ERC20 tokens? 
+                Optionally provide list of tokens to include.
+            effects (bool): Show state changes of the transaction?
+            events (bool): Include events logs of the transaction?
+                Note: costs 1 aditional API request point.
+            verbose (bool): Print verbose output?   (default: True)
+
         Returns: 
             Dict with the following keys:
             - calls:       list of dicts of internal transactions?
             - effects:     dict 
-            - transaction: dict 
+            - transaction: dict
+            - event:       list of dicts. Only included if you set `events=True`
 
         """
         endpoint = f"/dashboards/transaction/{hash}"
@@ -128,6 +138,8 @@ class BlockchairEthClient(BaseClient):
             params["erc20"] = "true"
         if effects == True:
             params["effects"] = "true"
+        if events == True:
+            params["events"] = "true"
 
         response = self.request(endpoint=endpoint, params=params, kind="get")
 
