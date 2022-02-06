@@ -34,7 +34,7 @@ def extract_eth_transfer(t, as_eth=False):
 def extract_uniswap_exchange(t, as_eth=False):
     """    
     Given the output of calling `client.transaction(tid, events=True)`, of a 
-    transaction that is a uniswap exchange between ETH and an ERC20 token,
+    transaction that is a uniswap exchange between ETH or ERC20 tokens,
     extract those details.
     
     Args:
@@ -42,18 +42,19 @@ def extract_uniswap_exchange(t, as_eth=False):
         as_eth: (bool) return values as ETH instead of the default WEI.
 
     Returns:
-        contract_address
-        in_value
-        out_value
-        in_token_name
-        out_token_name
-        fee
+        contract_address (str) eg the uniswap contract address
+        in_value        (str) the amount of the input token
+        out_value       (str) the amount of the output token
+        in_token_name   (str) the ticker code of the input token
+        out_token_name  (str) the ticker code of the output token
+        fee             (str) the fee paid for the transaction
     """
+    default_return_val = None, 0, 0, None, None, 0
     fee = t["transaction"].get("fee", 0)
     events = t.get("events", [])
     if len(events) == 0:
         print("No events data.")
-        return None, 0, 0, None, None
+        return default_return_val
     else:
         decoded_events = []
         for item in events:
@@ -65,7 +66,7 @@ def extract_uniswap_exchange(t, as_eth=False):
         transfer_events = [item for item in decoded_events if item.get("name") == "Transfer"]
         if len(swap_event) == 0:
             print("No swap events")
-            return None, 0, 0, None, None
+            return default_return_val
         elif len(swap_event) > 1:
             print("Multiple swap events detected.")
 
@@ -127,3 +128,50 @@ def extract_uniswap_exchange(t, as_eth=False):
             fee = conversions.wei2ethstr(fee)
         contract_address = swap_args_out.get("sender")
         return contract_address, in_value, out_value, in_token_name, out_token_name, fee
+
+
+def extract_erc20_transfer(t, as_eth=False):
+    """
+    Given the output of calling `client.transaction(tid, events=True)`, of a
+    transaction that is a transfer of an ERC20 token from one wallet to another,
+    extract those details.
+
+    Args:
+        t:  (dict) transaction information.
+        as_eth: (bool) return values as ETH instead of the default WEI.
+
+    Returns:
+        sender      (str) the address of the sender
+        recipient   (str) the address of the recipient
+        value       (str) the amount of the token
+        token_name  (str) the ticker code of the token
+        fee         (str) the fee paid for the transaction (ethereum fee)
+    """
+    events = t.get("events", [])
+    fee = t["transaction"].get("fee", 0)
+    default_return_val = None, None, 0, None, 0
+    if len(events) == 0:
+        print("No events data.")
+        return default_return_val
+    else:
+        decoded_event = events[-1].get("decoded_event", {})
+        decoded_event["contract"] = events[-1].get("contract")
+        if decoded_event.get("name") == "Transfer":
+            args = decoded_event.get("arguments")
+            sender = [arg for arg in args if arg["name"] == "sender"][0]["value"]
+            recipient = [arg for arg in args if arg["name"] == "recipient"][0]["value"]
+            value = [arg for arg in args if arg["name"] == "value"][0]["value"]
+            value = conversions.hex2int(value)
+
+            token_address = decoded_event.get("contract")
+            token_details = token_contracts.get(token_address, {})
+            token_name = token_details.get("name", f"UNKNOWN TOKEN ({token_address})")
+
+            if as_eth:
+                token_decimals = token_details.get("decimals", 18)
+                value = conversions.wei2ethstr(value, decimals=token_decimals)
+                fee = conversions.wei2ethstr(fee)
+            return sender, recipient, value, token_name, fee
+        else:
+            print("Could not interpret transaction as an ERC 20 transfer")
+            return default_return_val
