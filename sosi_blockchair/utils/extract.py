@@ -175,3 +175,16 @@ def extract_erc20_transfer(t, as_eth=False):
         else:
             print("Could not interpret transaction as an ERC 20 transfer")
             return default_return_val
+
+
+def extract_address_transactions(adddress_response, as_eth=False):
+    """Given the output of calling `client.address(wallet)`, it extracts the 
+    transactions information. And sorts them by time.
+    """
+    transactions = adddress_response["transactions"]
+    transactions = sorted(transactions, key=lambda x: x["time"])
+    if as_eth:
+        for t in transactions:
+            t["value"] = conversions.wei2ethstr(t.get("value", 0))
+    return transactions
+
