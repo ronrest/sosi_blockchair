@@ -59,6 +59,8 @@ def extract_uniswap_exchange(t, as_eth=False):
         decoded_events = []
         for item in events:
             _decoded_event = copy.deepcopy(item.get("decoded_event",{}))
+            if _decoded_event is None:
+                _decoded_event = {}
             _decoded_event["contract"] = item.get("contract")
             decoded_events.append(_decoded_event)
 
@@ -150,31 +152,41 @@ def extract_erc20_transfer(t, as_eth=False):
     events = t.get("events", [])
     fee = t["transaction"].get("fee", 0)
     default_return_val = None, None, 0, None, 0
-    if len(events) == 0:
-        print("No events data.")
+
+    # GET TRANSFER EVENTS
+    transfer_events = []
+    for item in events:
+        decoded_event = item.get("decoded_event")
+        if (decoded_event is not None) and (decoded_event.get("name") == "Transfer"):
+            transfer_events.append(item)
+
+    if len(transfer_events) == 0:
+        print("No transfer events data.")
         return default_return_val
+    elif len(transfer_events) > 1:
+        print("WARNING: more than one transfer events detected. Using the last one.")
+
+    decoded_event = transfer_events[-1].get("decoded_event", {})
+    decoded_event["contract"] = transfer_events[-1].get("contract")
+    if decoded_event.get("name") == "Transfer":
+        args = decoded_event.get("arguments")
+        sender = [arg for arg in args if arg["name"] == "sender"][0]["value"]
+        recipient = [arg for arg in args if arg["name"] == "recipient"][0]["value"]
+        value = [arg for arg in args if arg["name"] == "value"][0]["value"]
+        value = conversions.hex2int(value)
+
+        token_address = decoded_event.get("contract")
+        token_details = token_contracts.get(token_address, {})
+        token_name = token_details.get("name", f"UNKNOWN TOKEN ({token_address})")
+
+        if as_eth:
+            token_decimals = token_details.get("decimals", 18)
+            value = conversions.wei2ethstr(value, decimals=token_decimals)
+            fee = conversions.wei2ethstr(fee)
+        return sender, recipient, value, token_name, fee
     else:
-        decoded_event = events[-1].get("decoded_event", {})
-        decoded_event["contract"] = events[-1].get("contract")
-        if decoded_event.get("name") == "Transfer":
-            args = decoded_event.get("arguments")
-            sender = [arg for arg in args if arg["name"] == "sender"][0]["value"]
-            recipient = [arg for arg in args if arg["name"] == "recipient"][0]["value"]
-            value = [arg for arg in args if arg["name"] == "value"][0]["value"]
-            value = conversions.hex2int(value)
-
-            token_address = decoded_event.get("contract")
-            token_details = token_contracts.get(token_address, {})
-            token_name = token_details.get("name", f"UNKNOWN TOKEN ({token_address})")
-
-            if as_eth:
-                token_decimals = token_details.get("decimals", 18)
-                value = conversions.wei2ethstr(value, decimals=token_decimals)
-                fee = conversions.wei2ethstr(fee)
-            return sender, recipient, value, token_name, fee
-        else:
-            print("Could not interpret transaction as an ERC 20 transfer")
-            return default_return_val
+        print("Could not interpret transaction as an ERC 20 transfer")
+        return default_return_val
 
 
 def extract_address_transactions(adddress_response, as_eth=False):
